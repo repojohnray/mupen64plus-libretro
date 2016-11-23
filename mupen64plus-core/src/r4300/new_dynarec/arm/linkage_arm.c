@@ -18,14 +18,6 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/*
-#if defined(__thumb__)
-#define DECL_ARMMODE(x) "  .align 2\n" "  .global " x "\n" "  .thumb\n" "  .thumb_func\n" "  .type " x ", %function\n" x ":\n"
-#else
-#define DECL_ARMMODE(x) "  .align 4\n" "  .global " x "\n" "  .arm\n" x ":\n"
-#endif
-*/
-
 #if defined(__thumb__)
 #define GLOBAL_FUNCTION(name)		\
     ".align 2;\n"			\
@@ -60,7 +52,7 @@
 #define TEXT_SECTION ".text\n"
 #define END_SECTION
 
-asm(".cpu arm9tdmi");
+//asm(".cpu arm9tdmi");
 #ifndef __ARM_NEON__
 #if (defined(__VFP_FP__) && !defined(__SOFTFP__) && defined(__ARM_PCS_VFP))
 asm(".fpu vfp");
@@ -187,6 +179,9 @@ asm(
     "    mov    r12, r0\n"
     "    cmp    r0, #0xC0000000\n"
     "    mov    r6, #4096\n"
+#ifdef __thumb__
+    "    it     ge\n"
+#endif /*__thumb__*/
     "    ldrge  r12, [r4, r5, lsl #2]\n"
     "    mov    r2, #0x80000\n"
     "    ldr    r3, .jiptr_offset1\n"
@@ -194,12 +189,18 @@ asm(
     "    add    r3, pc, r3\n"
     "    tst    r12, r12\n"
     "    sub    r6, r6, #1\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  r12, r0\n"
     "    ldr    r7, [r1]\n"
     "    eor    r2, r2, r12, lsr #12\n"
     "    and    r6, r6, r12, lsr #12\n"
     "    cmp    r2, #2048\n"
     "    add    r12, r7, #2\n"
+#ifdef __thumb__
+    "    it     cs\n"
+#endif /*__thumb__*/
     "    orrcs  r2, r6, #2048\n"
     "    ldr    r5, [r3, r2, lsl #2]\n"
     "    lsl    r12, r12, #8\n"
@@ -219,6 +220,9 @@ asm(
     "    mov    r5, r1\n"
     "    add    r1, r1, r12, asr #6\n"
     "    teq    r1, r4\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  pc, r4 /* Stale i-cache */\n"
     "    bl     add_link\n"
     "    sub    r2, r4, r5\n"
@@ -235,19 +239,36 @@ asm(
     ".jdptr_pic1:\n"
     "    add    r3, pc, r3\n"
     "    eor    r4, r0, r0, lsl #16\n"
+#ifdef __thumb__
+    "    it     cc\n"
+#endif /*__thumb__*/
     "    lslcc  r2, r0, #9\n"
     "    ldr    r6, .htptr_offset1\n"
     ".htptr_pic1:\n"
     "    add    r6, pc, r6\n"
     "    lsr    r4, r4, #12\n"
+#ifdef __thumb__
+    "    it     cc\n"
+#endif /*__thumb__*/
     "    lsrcc  r2, r2, #21\n"
     "    bic    r4, r4, #15\n"
     "    ldr    r5, [r3, r2, lsl #2]\n"
+#ifdef __thumb__
+    "    ldr    r7, [r6, r4]\n"
+    "    add    r6, r6, r4\n"
+#else /*__thumb__*/
     "    ldr    r7, [r6, r4]!\n"
+#endif /*__thumb__*/
     "    teq    r7, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r6, #4]\n"
     "    ldr    r7, [r6, #8]\n"
     "    teq    r7, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r6, #12]\n"
     "    /* jump_dirty lookup */\n"
     ".A6:\n"
@@ -284,7 +305,11 @@ asm(
     "    /* r1 = fault address */\n"
     "    /* r2 = cause */\n"
     "    ldr    r3, [fp, #g_cp0_regs+48-dynarec_local] /* Status */\n"
+#ifdef __thumb__
+    "    mvn    r6, vF000000F\n"
+#else /*__thumb__*/
     "    mvn    r6, #0xF000000F\n"
+#endif /*__thumb__*/
     "    ldr    r4, [fp, #g_cp0_regs+16-dynarec_local] /* Context */\n"
     "    bic    r6, r6, #0x0F800000\n"
     "    str    r0, [fp, #g_cp0_regs+56-dynarec_local] /* EPC */\n"
@@ -302,6 +327,11 @@ asm(
     "    bl     get_addr_ht\n"
     "    mov    pc, r0\n"
     "\n"
+#ifdef __thumb__
+    "    .align 2\n"
+    "vF000000F:\n"
+    "  .word    0xF000000F\n"
+#endif /*__thumb__*/
     "/* Special dynamic linker for the case where a page fault\n"
     "   may occur in a branch delay slot */\n"
     GLOBAL_FUNCTION("dyna_linker_ds")
@@ -314,6 +344,9 @@ asm(
     "    mov    r12, r0\n"
     "    cmp    r0, #0xC0000000\n"
     "    mov    r6, #4096\n"
+#ifdef __thumb__
+    "    it     ge\n"
+#endif /*__thumb__*/
     "    ldrge  r12, [r4, r5, lsl #2]\n"
     "    mov    r2, #0x80000\n"
     "    ldr    r3, .jiptr_offset2\n"
@@ -321,12 +354,18 @@ asm(
     "    add    r3, pc, r3\n"
     "    tst    r12, r12\n"
     "    sub    r6, r6, #1\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  r12, r0\n"
     "    ldr    r7, [r1]\n"
     "    eor    r2, r2, r12, lsr #12\n"
     "    and    r6, r6, r12, lsr #12\n"
     "    cmp    r2, #2048\n"
     "    add    r12, r7, #2\n"
+#ifdef __thumb__
+    "    it     cs\n"
+#endif /*__thumb__*/
     "    orrcs  r2, r6, #2048\n"
     "    ldr    r5, [r3, r2, lsl #2]\n"
     "    lsl    r12, r12, #8\n"
@@ -346,6 +385,9 @@ asm(
     "    mov    r5, r1\n"
     "    add    r1, r1, r12, asr #6\n"
     "    teq    r1, r4\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  pc, r4 /* Stale i-cache */\n"
     "    bl     add_link\n"
     "    sub    r2, r4, r5\n"
@@ -362,19 +404,36 @@ asm(
     ".jdptr_pic2:\n"
     "    add    r3, pc, r3\n"
     "    eor    r4, r0, r0, lsl #16\n"
+#ifdef __thumb__
+    "    it     cc\n"
+#endif /*__thumb__*/
     "    lslcc  r2, r0, #9\n"
     "    ldr    r6, .htptr_offset2\n"
     ".htptr_pic2:\n"
     "    add    r6, pc, r6\n"
     "    lsr    r4, r4, #12\n"
+#ifdef __thumb__
+    "    it     cc\n"
+#endif /*__thumb__*/
     "    lsrcc  r2, r2, #21\n"
     "    bic    r4, r4, #15\n"
     "    ldr    r5, [r3, r2, lsl #2]\n"
+#ifdef __thumb__
+    "    ldr    r7, [r6, r4]\n"
+    "    add    r6, r6, r4\n"
+#else /*__thumb__*/
     "    ldr    r7, [r6, r4]!\n"
+#endif /*__thumb__*/
     "    teq    r7, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r6, #4]\n"
     "    ldr    r7, [r6, #8]\n"
     "    teq    r7, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r6, #12]\n"
     "    /* jump_dirty lookup */\n"
     ".B6:\n"
@@ -406,10 +465,19 @@ asm(
     "    beq    dyna_linker_ds\n"
     "    /* pagefault */\n"
     "    bic    r1, r0, #7\n"
+#ifdef __thumb__
+    "    mov    r2, v80000008	/* High bit set indicates pagefault in delay slot */\n"
+#else /*__thumb__*/
     "    mov    r2, #0x80000008 /* High bit set indicates pagefault in delay slot */\n"
+#endif /*__thumb__*/
     "    sub    r0, r1, #4\n"
     "    b      exec_pagefault\n"
     "\n"
+#ifdef __thumb__
+    "    .align 2\n"
+    "v80000008:\n"
+    "  .word    0x80000008\n"
+#endif /*__thumb__*/
     GLOBAL_FUNCTION("jump_vaddr_r0")
     "    eor    r2, r0, r0, lsl #16\n"
     "    b      jump_vaddr\n"
@@ -474,11 +542,22 @@ asm(
     "    add    r1, pc, r1\n"
     "    mvn    r3, #15\n"
     "    and    r2, r3, r2, lsr #12\n"
+#ifdef __thumb__
+    "    ldr    r2, [r1, r2]\n"
+    "    add    r1, r1, r2\n"
+#else /*__thumb__*/
     "    ldr    r2, [r1, r2]!\n"
+#endif /*__thumb__*/
     "    teq    r2, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r1, #4]\n"
     "    ldr    r2, [r1, #8]\n"
     "    teq    r2, r0\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  pc, [r1, #12]\n"
     "    str    r10, [fp, #cycle_count-dynarec_local]\n"
     "    bl     get_addr\n"
@@ -521,8 +600,14 @@ asm(
     "    mov    r4, #0\n"
     "    add    r3, r1, r3\n"
     "    mov    r5, #0\n"
+#ifdef __thumb__
+    "    it     ne\n"
+#endif /*__thumb__*/
     "    ldrne  r4, [r1], #4\n"
     "    mov    r12, #0\n"
+#ifdef __thumb__
+    "    it     ne\n"
+#endif /*__thumb__*/
     "    ldrne  r5, [r2], #4\n"
     "    teq    r1, r3\n"
     "    beq    .D3\n"
@@ -539,9 +624,15 @@ asm(
     "    bcc    .D2\n"
     "    teq    r7, r8\n"
     ".D3:\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    teqeq  r4, r5\n"
     ".D4:\n"
     "    ldr    r8, [fp, #branch_target-dynarec_local]\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  pc, lr\n"
     ".D5:\n"
     "    bl     get_addr\n"
@@ -572,6 +663,9 @@ asm(
     "    tst    r2, r2\n"
     "    bne    .E3\n"
     "    tst    r1, r1\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    moveq  pc, lr\n"
     ".E2:\n"
     "    ldr    r0, [fp, #pcaddr-dynarec_local]\n"
@@ -588,6 +682,9 @@ asm(
     ".E5:\n"
     "    lsrs   r4, r4, #1\n"
     "    add    r0, r5, r6\n"
+#ifdef __thumb__
+    "    it     cs\n"
+#endif /*__thumb__*/
     "    blcs   clean_blocks\n"
     "    add    r6, r6, #1\n"
     "    tst    r6, #31\n"
@@ -672,7 +769,13 @@ asm(
     "    ldr    r3, [fp, #hi+4-dynarec_local]\n"
     "    eors   r3, r3, r2, asr #31\n"
     "    ldr    r2, [fp, #lo-dynarec_local]\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    ldreq  r3, [fp, #lo+4-dynarec_local]\n"
+#ifdef __thumb__
+    "    it     eq\n"
+#endif /*__thumb__*/
     "    eoreq  r3, r3, r2, asr #31\n"
     "    subs   r3, r3, #1\n"
     "    adc    r1, r1, r1\n"
@@ -965,11 +1068,18 @@ asm(
     "    lsl    r1, r0, #16\n"
     "    lsr    r4, r0,    #26\n"
     "    and    r7, r7, r0, lsr #18\n"
+#ifdef __thumb__
+    "    mvn    r9, vF000000F\n"
+#else /*__thumb__*/
     "    mvn    r9, #0xF000000F\n"
+#endif /*__thumb__*/
     "    sub    r2, r2, r1, asr #16\n"
     "    bic    r9, r9, #0x0F800000\n"
     "    rors   r6, r6, r4\n"
     "    mov    r0, #0x80000000\n"
+#ifdef __thumb__
+    "    it     cs\n"
+#endif /*__thumb__*/
     "    ldrcs  r2, [r5, r7]\n"
     "    bic    r8, r8, r9\n"
     "    tst    r3, #2\n"
@@ -980,6 +1090,9 @@ asm(
     "    str    r4, [fp, #g_cp0_regs+32-dynarec_local] /* BadVAddr */\n"
     "    add    r0, r0, #0x180\n"
     "    and    r4, r9, r4, lsr #9\n"
+#ifdef __thumb__
+    "    it     ne\n"
+#endif /*__thumb__*/
     "    strne  r3, [r6, r7]\n"
     "    orr    r8, r8, r4\n"
     "    str    r8, [fp, #g_cp0_regs+16-dynarec_local] /* Context */\n"
