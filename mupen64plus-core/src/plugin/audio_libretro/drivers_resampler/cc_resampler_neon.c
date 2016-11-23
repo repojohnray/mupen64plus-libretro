@@ -15,357 +15,355 @@
 
 #if defined(__ARM_NEON__)
 
+#if defined(__thumb__)
+#define DECL_ARMMODE(x) "  .align 2\n" "  .global " x "\n" "  .thumb\n" "  .thumb_func\n" "  .type " x ", %function\n" x ":\n"
+#else
+#define DECL_ARMMODE(x) "  .align 4\n" "  .global " x "\n" "  .arm\n" x ":\n"
+#endif
+
 #ifndef CC_RESAMPLER_PRECISION
 #define CC_RESAMPLER_PRECISION 1
 #endif
 
-#ifndef __MACH__
-.arm
-#endif
-.align 4
-.globl resampler_CC_downsample_neon
-.globl _resampler_CC_downsample_neon
-
-# size_t resampler_CC_downsample_neon(float *outp, const float *inp,
-#       rarch_CC_resampler_t* re_, size_t input_frames, float ratio);
-
-# r0: outp initial (and output_frames return value)
-# r1: inp initial/current
-# r2: re_ [r2+0] --> {q14,q15}=buffer , [r2+32] --> s5=distance
-# r3: input_frames/inp_max
-# r4: outp current
-# r5:
-# r6:
-# r7:
-
-# q0:  d0:  s0:  0.0             # q4:  d8:  s16: min(ratio, 1.0)
-#           s1:  1.0             #           s17: min(ratio, 1.0)
-#      d1:  s2:  2.0             #      d9:  s18: min(ratio, 1.0)
-#           s3:  3.0             #           s19: min(ratio, 1.0)
-# q1:  d2:  s4:  ratio           # q5:  d10: s20: 1.0
-#           s5:  distance        #           s21: 1.0
-#      d3:  s6:  (1.0/ratio)     #      d11: s22: 1.0
-#           s7:  (1.0/ratio)+0.5 #           s23: 1.0
-# q2:  d4:  s8:  0.5             # q6:  d12: s24: 3.0
-#           s9:  0.5             #           s25: 3.0
-#      d5:  s10: 0.5             #      d13: s26: 3.0
-#           s11: 0.5             #           s27: 3.0
-# q3:  d6:  s12: -0.5            # q7:  d14: s28: 0.25
-#           s13: -0.5            #           s29: 0.25
-#      d7:  s14: -0.5            #      d15: s30: 0.25
-#           s15: -0.5            #           s31: 0.25
-
-# q8:  d16: (temp)               # q12: d24: (temp)
-#           (temp)               #           (temp)
-#      d17: (temp)               #      d25: (temp)
-#           (temp)               #           (temp)
-# q9:  d18: (temp)               # q13: d26: (temp)
-#           (temp)               #           (temp)
-#      d19: (temp)               #      d27: (temp)
-#           (temp)               #           (temp)
-# q10: d20: (temp)               # q14: d28: buffer[0]
-#           (temp)               #           buffer[1]
-#      d21: (temp)               #      d29: buffer[2]
-#           (temp)               #           buffer[3]
-# q11: d22: (temp)               # q15: d30: buffer[4]
-#           (temp)               #           buffer[5]
-#      d23: (temp)               #      d31: buffer[6]
-#           (temp)               #           buffer[7]
-
-
-resampler_CC_downsample_neon:
-_resampler_CC_downsample_neon:
-
-vld1.f32 {q14-q15}, [r2, :256]
-vldr s4, [sp]
-vpush {q4,q5,q6,q7}
-push {r4}
-
-mov r4, r0
-
-
-veor q0, q0, q0
-vmov.f32 s1, #1.0
-vmov.f32 s2, #2.0
-vmov.f32 s3, #3.0
-
-vmov.f32 q2, #0.5
-vmov.f32 q3, #-0.5
-
-vmov.f32 q5, #1.0
-vmov.f32 q6, #3.0
-vmov.f32 q7, #0.25
-
-
-vldr s5, [r2, #32]
-vdiv.f32 s6, s20, s4
-vadd.f32 s7, s6, s8
-vdup.f32 q4, d2[0]
-vmin.f32 q4, q4, q5
-
-
-lsl r3, #3
-add r3, r3, r1
-
-
-cmp r3, r1
-beq 3f
-1:
-
-vdup.f32 q8, d3[0]
-vmul.f32 q8, q8, q0
-vdup.f32 q9, d2[1]
-vsub.f32 q8, q9, q8
-
-vadd.f32 q10, q8, q2
-vsub.f32 q11, q8, q2
-
-vmul.f32 q10, q10, q4
-vmul.f32 q11, q11, q4
-
+asm(
+    "# size_t resampler_CC_downsample_neon(float *outp, const float *inp,\n"
+    "#       rarch_CC_resampler_t* re_, size_t input_frames, float ratio);\n"
+    "\n"
+    "# r0: outp initial (and output_frames return value)\n"
+    "# r1: inp initial/current\n"
+    "# r2: re_ [r2+0] --> {q14,q15}=buffer , [r2+32] --> s5=distance\n"
+    "# r3: input_frames/inp_max\n"
+    "# r4: outp current\n"
+    "# r5:\n"
+    "# r6:\n"
+    "# r7:\n"
+    "\n"
+    "# q0:  d0:  s0:  0.0             # q4:  d8:  s16: min(ratio, 1.0)\n"
+    "#           s1:  1.0             #           s17: min(ratio, 1.0)\n"
+    "#      d1:  s2:  2.0             #      d9:  s18: min(ratio, 1.0)\n"
+    "#           s3:  3.0             #           s19: min(ratio, 1.0)\n"
+    "# q1:  d2:  s4:  ratio           # q5:  d10: s20: 1.0\n"
+    "#           s5:  distance        #           s21: 1.0\n"
+    "#      d3:  s6:  (1.0/ratio)     #      d11: s22: 1.0\n"
+    "#           s7:  (1.0/ratio)+0.5 #           s23: 1.0\n"
+    "# q2:  d4:  s8:  0.5             # q6:  d12: s24: 3.0\n"
+    "#           s9:  0.5             #           s25: 3.0\n"
+    "#      d5:  s10: 0.5             #      d13: s26: 3.0\n"
+    "#           s11: 0.5             #           s27: 3.0\n"
+    "# q3:  d6:  s12: -0.5            # q7:  d14: s28: 0.25\n"
+    "#           s13: -0.5            #           s29: 0.25\n"
+    "#      d7:  s14: -0.5            #      d15: s30: 0.25\n"
+    "#           s15: -0.5            #           s31: 0.25\n"
+    "\n"
+    "# q8:  d16: (temp)               # q12: d24: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "#      d17: (temp)               #      d25: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "# q9:  d18: (temp)               # q13: d26: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "#      d19: (temp)               #      d27: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "# q10: d20: (temp)               # q14: d28: buffer[0]\n"
+    "#           (temp)               #           buffer[1]\n"
+    "#      d21: (temp)               #      d29: buffer[2]\n"
+    "#           (temp)               #           buffer[3]\n"
+    "# q11: d22: (temp)               # q15: d30: buffer[4]\n"
+    "#           (temp)               #           buffer[5]\n"
+    "#      d23: (temp)               #      d31: buffer[6]\n"
+    "#           (temp)               #           buffer[7]\n"
+    "\n"
+    "\n"
+    DECL_ARMMODE("resampler_CC_downsample_neon")
+    DECL_ARMMODE("_resampler_CC_downsample_neon")
+    "\n"
+    "vld1.f32 {q14-q15}, [r2, :256]\n"
+    "vldr s4, [sp]\n"
+    "vpush {q4,q5,q6,q7}\n"
+    "push {r4}\n"
+    "\n"
+    "mov r4, r0\n"
+    "\n"
+    "\n"
+    "veor q0, q0, q0\n"
+    "vmov.f32 s1, #1.0\n"
+    "vmov.f32 s2, #2.0\n"
+    "vmov.f32 s3, #3.0\n"
+    "\n"
+    "vmov.f32 q2, #0.5\n"
+    "vmov.f32 q3, #-0.5\n"
+    "\n"
+    "vmov.f32 q5, #1.0\n"
+    "vmov.f32 q6, #3.0\n"
+    "vmov.f32 q7, #0.25\n"
+    "\n"
+    "\n"
+    "vldr s5, [r2, #32]\n"
+    "vdiv.f32 s6, s20, s4\n"
+    "vadd.f32 s7, s6, s8\n"
+    "vdup.f32 q4, d2[0]\n"
+    "vmin.f32 q4, q4, q5\n"
+    "\n"
+    "\n"
+    "lsl r3, #3\n"
+    "add r3, r3, r1\n"
+    "\n"
+    "\n"
+    "cmp r3, r1\n"
+    "beq 3f\n"
+    "1:\n"
+    "\n"
+    "vdup.f32 q8, d3[0]\n"
+    "vmul.f32 q8, q8, q0\n"
+    "vdup.f32 q9, d2[1]\n"
+    "vsub.f32 q8, q9, q8\n"
+    "\n"
+    "vadd.f32 q10, q8, q2\n"
+    "vsub.f32 q11, q8, q2\n"
+    "\n"
+    "vmul.f32 q10, q10, q4\n"
+    "vmul.f32 q11, q11, q4\n"
+    "\n"
 #if (CC_RESAMPLER_PRECISION > 0)
-vmul.f32 q8, q10, q10
-vmul.f32 q9, q11, q11
-
-vsub.f32 q12, q6, q8
-vsub.f32 q13, q6, q9
-
-vmul.f32 q12, q12, q8
-vmul.f32 q13, q13, q9
-
-vmul.f32 q12, q12, q7
-vmul.f32 q13, q13, q7
-
-vsub.f32 q12, q5, q12
-vsub.f32 q13, q5, q13
-
-vmul.f32 q10, q10, q12
-vmul.f32 q11, q11, q13
+    "vmul.f32 q8, q10, q10\n"
+    "vmul.f32 q9, q11, q11\n"
+    "\n"
+    "vsub.f32 q12, q6, q8\n"
+    "vsub.f32 q13, q6, q9\n"
+    "\n"
+    "vmul.f32 q12, q12, q8\n"
+    "vmul.f32 q13, q13, q9\n"
+    "\n"
+    "vmul.f32 q12, q12, q7\n"
+    "vmul.f32 q13, q13, q7\n"
+    "\n"
+    "vsub.f32 q12, q5, q12\n"
+    "vsub.f32 q13, q5, q13\n"
+    "\n"
+    "vmul.f32 q10, q10, q12\n"
+    "vmul.f32 q11, q11, q13\n"
 #endif
+    "\n"
+    "vmin.f32 q10, q10, q2\n"
+    "vmin.f32 q11, q11, q2\n"
+    "\n"
+    "vmax.f32 q10, q10, q3\n"
+    "vmax.f32 q11, q11, q3\n"
+    "\n"
+    "vsub.f32 q10, q10, q11\n"
+    "vmov.f32 q11, q10\n"
+    "\n"
+    "vzip.f32 q10, q11\n"
+    "\n"
+    "vld1.f32 d16, [r1, :64]!\n"
+    "vmov.f32 d17, d16\n"
+    "\n"
+    "vmul.f32 q10, q10, q8\n"
+    "vmul.f32 q11, q11, q8\n"
+    "\n"
+    "vadd.f32 q14, q14, q10\n"
+    "vadd.f32 q15, q15, q11\n"
+    "\n"
+    "# distance++\n"
+    "vadd.f32 s5, s5, s20\n"
+    "\n"
+    "vcmpe.f32	s5, s7\n"
+    "vmrs	APSR_nzcv, fpscr\n"
+    "ble 2f\n"
+    "\n"
+    "vst1.f32 d28, [r4, :64]!\n"
+    "vmov.f32 d28, d29\n"
+    "vmov.f32 d29, d30\n"
+    "vmov.f32 d30, d31\n"
+    "vmov.f32 d31, #0.0\n"
+    "\n"
+    "vsub.f32 s5, s5, s6\n"
+    "\n"
+    "2:\n"
+    "cmp r3, r1\n"
+    "bne 1b\n"
+    "\n"
+    "3:\n"
+    "vst1.f32 {q14-q15}, [r2, :256]\n"
+    "vstr s5, [r2, #32]\n"
+    "sub r0, r4, r0\n"
+    "lsr r0, r0, #3\n"
+    "\n"
+    "pop  {r4}\n"
+    "vpop {q4,q5,q6,q7}\n"
+    "\n"
+    "bx lr\n"
+    "\n"
+    "\n"
 
-vmin.f32 q10, q10, q2
-vmin.f32 q11, q11, q2
-
-vmax.f32 q10, q10, q3
-vmax.f32 q11, q11, q3
-
-vsub.f32 q10, q10, q11
-vmov.f32 q11, q10
-
-vzip.f32 q10, q11
-
-vld1.f32 d16, [r1, :64]!
-vmov.f32 d17, d16
-
-vmul.f32 q10, q10, q8
-vmul.f32 q11, q11, q8
-
-vadd.f32 q14, q14, q10
-vadd.f32 q15, q15, q11
-
-# distance++
-vadd.f32 s5, s5, s20
-
-vcmpe.f32	s5, s7
-vmrs	APSR_nzcv, fpscr
-ble 2f
-
-vst1.f32 d28, [r4, :64]!
-vmov.f32 d28, d29
-vmov.f32 d29, d30
-vmov.f32 d30, d31
-vmov.f32 d31, #0.0
-
-vsub.f32 s5, s5, s6
-
-2:
-cmp r3, r1
-bne 1b
-
-3:
-vst1.f32 {q14-q15}, [r2, :256]
-vstr s5, [r2, #32]
-sub r0, r4, r0
-lsr r0, r0, #3
-
-pop  {r4}
-vpop {q4,q5,q6,q7}
-
-bx lr
-
-
-.align 4
-.globl resampler_CC_upsample_neon
-.globl _resampler_CC_upsample_neon
-
-# size_t resampler_CC_upsample_neon(float *outp, const float *inp,
-#       rarch_CC_resampler_t* re_, size_t input_frames, float ratio);
-
-# r0: outp initial (and output_frames return value)
-# r1: inp initial/current
-# r2: re_ [r2+0] --> {q14,q15}=buffer , [r2+32] --> s5=distance
-# r3: input_frames/inp_max
-# r4: outp current
-# r5:
-# r6:
-# r7:
-
-# q0:  d0:  s0:  1.0             # q4:  d8:  s16: min(ratio, 1.0)
-#           s1:  0.0             #           s17: min(ratio, 1.0)
-#      d1:  s2: -1.0             #      d9:  s18: min(ratio, 1.0)
-#           s3: -2.0             #           s19: min(ratio, 1.0)
-# q1:  d2:  s4:  ratio           # q5:  d10: s20: 1.0
-#           s5:  distance        #           s21: 1.0
-#      d3:  s6:  (1.0/ratio)     #      d11: s22: 1.0
-#           s7:  (1.0/ratio)+0.5 #           s23: 1.0
-# q2:  d4:  s8:  0.5             # q6:  d12: s24: 3.0
-#           s9:  0.5             #           s25: 3.0
-#      d5:  s10: 0.5             #      d13: s26: 3.0
-#           s11: 0.5             #           s27: 3.0
-# q3:  d6:  s12: -0.5            # q7:  d14: s28: 0.25
-#           s13: -0.5            #           s29: 0.25
-#      d7:  s14: -0.5            #      d15: s30: 0.25
-#           s15: -0.5            #           s31: 0.25
-
-# q8:  d16: (temp)               # q12: d24: (temp)
-#           (temp)               #           (temp)
-#      d17: (temp)               #      d25: (temp)
-#           (temp)               #           (temp)
-# q9:  d18: (temp)               # q13: d26: (temp)
-#           (temp)               #           (temp)
-#      d19: (temp)               #      d27: (temp)
-#           (temp)               #           (temp)
-# q10: d20: (temp)               # q14: d28: buffer[0]
-#           (temp)               #           buffer[1]
-#      d21: (temp)               #      d29: buffer[2]
-#           (temp)               #           buffer[3]
-# q11: d22: (temp)               # q15: d30: buffer[4]
-#           (temp)               #           buffer[5]
-#      d23: (temp)               #      d31: buffer[6]
-#           (temp)               #           buffer[7]
-
-
-resampler_CC_upsample_neon:
-_resampler_CC_upsample_neon:
-
-vld1.f32 {q14-q15}, [r2, :256]
-vldr s4, [sp]
-vpush {q4,q5,q6,q7}
-push {r4}
-
-mov r4, r0
-
-
-veor q0, q0, q0
-vmov.f32 s0, #1.0
-vmov.f32 s2, #-1.0
-vmov.f32 s3, #-2.0
-
-vmov.f32 q2, #0.5
-vmov.f32 q3, #-0.5
-
-vmov.f32 q5, #1.0
-vmov.f32 q6, #3.0
-vmov.f32 q7, #0.25
-
-
-vldr s5, [r2, #32]
-vdiv.f32 s6, s20, s4
-vadd.f32 s7, s6, s8
-vdup.f32 q4, d2[0]
-vmin.f32 q4, q4, q5
-
-
-lsl r3, #3
-add r3, r3, r1
-
-
-cmp r3, r1
-beq 4f
-1:
-
-vld1.f32 d16, [r1, :64]!
-vmov.f32 d28, d29
-vmov.f32 d29, d30
-vmov.f32 d30, d31
-vmov.f32 d31, d16
-
-vcmpe.f32	s5, s20
-vmrs	APSR_nzcv, fpscr
-bge 3f
-2:
-vdup.f32 q8, d2[1]
-vadd.f32 q8, q8, q0
-
-vadd.f32 q10, q8, q2
-vsub.f32 q11, q8, q2
-
-vmul.f32 q10, q10, q4
-vmul.f32 q11, q11, q4
-
+    
+    "# size_t resampler_CC_upsample_neon(float *outp, const float *inp,\n"
+    "#       rarch_CC_resampler_t* re_, size_t input_frames, float ratio);\n"
+    "\n"
+    "# r0: outp initial (and output_frames return value)\n"
+    "# r1: inp initial/current\n"
+    "# r2: re_ [r2+0] --> {q14,q15}=buffer , [r2+32] --> s5=distance\n"
+    "# r3: input_frames/inp_max\n"
+    "# r4: outp current\n"
+    "# r5:\n"
+    "# r6:\n"
+    "# r7:\n"
+    "\n"
+    "# q0:  d0:  s0:  1.0             # q4:  d8:  s16: min(ratio, 1.0)\n"
+    "#           s1:  0.0             #           s17: min(ratio, 1.0)\n"
+    "#      d1:  s2: -1.0             #      d9:  s18: min(ratio, 1.0)\n"
+    "#           s3: -2.0             #           s19: min(ratio, 1.0)\n"
+    "# q1:  d2:  s4:  ratio           # q5:  d10: s20: 1.0\n"
+    "#           s5:  distance        #           s21: 1.0\n"
+    "#      d3:  s6:  (1.0/ratio)     #      d11: s22: 1.0\n"
+    "#           s7:  (1.0/ratio)+0.5 #           s23: 1.0\n"
+    "# q2:  d4:  s8:  0.5             # q6:  d12: s24: 3.0\n"
+    "#           s9:  0.5             #           s25: 3.0\n"
+    "#      d5:  s10: 0.5             #      d13: s26: 3.0\n"
+    "#           s11: 0.5             #           s27: 3.0\n"
+    "# q3:  d6:  s12: -0.5            # q7:  d14: s28: 0.25\n"
+    "#           s13: -0.5            #           s29: 0.25\n"
+    "#      d7:  s14: -0.5            #      d15: s30: 0.25\n"
+    "#           s15: -0.5            #           s31: 0.25\n"
+    "\n"
+    "# q8:  d16: (temp)               # q12: d24: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "#      d17: (temp)               #      d25: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "# q9:  d18: (temp)               # q13: d26: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "#      d19: (temp)               #      d27: (temp)\n"
+    "#           (temp)               #           (temp)\n"
+    "# q10: d20: (temp)               # q14: d28: buffer[0]\n"
+    "#           (temp)               #           buffer[1]\n"
+    "#      d21: (temp)               #      d29: buffer[2]\n"
+    "#           (temp)               #           buffer[3]\n"
+    "# q11: d22: (temp)               # q15: d30: buffer[4]\n"
+    "#           (temp)               #           buffer[5]\n"
+    "#      d23: (temp)               #      d31: buffer[6]\n"
+    "#           (temp)               #           buffer[7]\n"
+    "\n"
+    "\n"
+    DECL_ARMMODE("resampler_CC_upsample_neon")
+    DECL_ARMMODE("_resampler_CC_upsample_neon")
+    "\n"
+    "vld1.f32 {q14-q15}, [r2, :256]\n"
+    "vldr s4, [sp]\n"
+    "vpush {q4,q5,q6,q7}\n"
+    "push {r4}\n"
+    "\n"
+    "mov r4, r0\n"
+    "\n"
+    "\n"
+    "veor q0, q0, q0\n"
+    "vmov.f32 s0, #1.0\n"
+    "vmov.f32 s2, #-1.0\n"
+    "vmov.f32 s3, #-2.0\n"
+    "\n"
+    "vmov.f32 q2, #0.5\n"
+    "vmov.f32 q3, #-0.5\n"
+    "\n"
+    "vmov.f32 q5, #1.0\n"
+    "vmov.f32 q6, #3.0\n"
+    "vmov.f32 q7, #0.25\n"
+    "\n"
+    "\n"
+    "vldr s5, [r2, #32]\n"
+    "vdiv.f32 s6, s20, s4\n"
+    "vadd.f32 s7, s6, s8\n"
+    "vdup.f32 q4, d2[0]\n"
+    "vmin.f32 q4, q4, q5\n"
+    "\n"
+    "\n"
+    "lsl r3, #3\n"
+    "add r3, r3, r1\n"
+    "\n"
+    "\n"
+    "cmp r3, r1\n"
+    "beq 4f\n"
+    "1:\n"
+    "\n"
+    "vld1.f32 d16, [r1, :64]!\n"
+    "vmov.f32 d28, d29\n"
+    "vmov.f32 d29, d30\n"
+    "vmov.f32 d30, d31\n"
+    "vmov.f32 d31, d16\n"
+    "\n"
+    "vcmpe.f32	s5, s20\n"
+    "vmrs	APSR_nzcv, fpscr\n"
+    "bge 3f\n"
+    "2:\n"
+    "vdup.f32 q8, d2[1]\n"
+    "vadd.f32 q8, q8, q0\n"
+    "\n"
+    "vadd.f32 q10, q8, q2\n"
+    "vsub.f32 q11, q8, q2\n"
+    "\n"
+    "vmul.f32 q10, q10, q4\n"
+    "vmul.f32 q11, q11, q4\n"
+    "\n"
 #if (CC_RESAMPLER_PRECISION > 0)
-vmul.f32 q8, q10, q10
-vmul.f32 q9, q11, q11
-
-vsub.f32 q12, q6, q8
-vsub.f32 q13, q6, q9
-
-vmul.f32 q12, q12, q8
-vmul.f32 q13, q13, q9
-
-vmul.f32 q12, q12, q7
-vmul.f32 q13, q13, q7
-
-vsub.f32 q12, q5, q12
-vsub.f32 q13, q5, q13
-
-vmul.f32 q10, q10, q12
-vmul.f32 q11, q11, q13
+    "vmul.f32 q8, q10, q10\n"
+    "vmul.f32 q9, q11, q11\n"
+    "\n"
+    "vsub.f32 q12, q6, q8\n"
+    "vsub.f32 q13, q6, q9\n"
+    "\n"
+    "vmul.f32 q12, q12, q8\n"
+    "vmul.f32 q13, q13, q9\n"
+    "\n"
+    "vmul.f32 q12, q12, q7\n"
+    "vmul.f32 q13, q13, q7\n"
+    "\n"
+    "vsub.f32 q12, q5, q12\n"
+    "vsub.f32 q13, q5, q13\n"
+    "\n"
+    "vmul.f32 q10, q10, q12\n"
+    "vmul.f32 q11, q11, q13\n"
 #endif
-
-vmin.f32 q10, q10, q2
-vmin.f32 q11, q11, q2
-
-vmax.f32 q10, q10, q3
-vmax.f32 q11, q11, q3
-
-vsub.f32 q10, q10, q11
-vmov.f32 q11, q10
-
-vzip.f32 q10, q11
-
-vmul.f32 q10, q10, q14
-vmul.f32 q11, q11, q15
-
-vadd.f32 q10, q10, q11
-vadd.f32 d20, d20, d21
-
-vst1.f32 d20, [r4, :64]!
-
-vadd.f32 s5, s5, s6
-
-
-vcmpe.f32	s5, s20
-vmrs	APSR_nzcv, fpscr
-blt 2b
-
-3:
-# distance--
-vsub.f32 s5, s5, s20
-
-cmp r3, r1
-bne 1b
-
-
-4:
-vst1.f32 {q14-q15}, [r2, :256]
-vstr s5, [r2, #32]
-sub r0, r4, r0
-lsr r0, r0, #3
-
-pop  {r4}
-vpop {q4,q5,q6,q7}
-
-bx lr
-
+    "\n"
+    "vmin.f32 q10, q10, q2\n"
+    "vmin.f32 q11, q11, q2\n"
+    "\n"
+    "vmax.f32 q10, q10, q3\n"
+    "vmax.f32 q11, q11, q3\n"
+    "\n"
+    "vsub.f32 q10, q10, q11\n"
+    "vmov.f32 q11, q10\n"
+    "\n"
+    "vzip.f32 q10, q11\n"
+    "\n"
+    "vmul.f32 q10, q10, q14\n"
+    "vmul.f32 q11, q11, q15\n"
+    "\n"
+    "vadd.f32 q10, q10, q11\n"
+    "vadd.f32 d20, d20, d21\n"
+    "\n"
+    "vst1.f32 d20, [r4, :64]!\n"
+    "\n"
+    "vadd.f32 s5, s5, s6\n"
+    "\n"
+    "\n"
+    "vcmpe.f32	s5, s20\n"
+    "vmrs	APSR_nzcv, fpscr\n"
+    "blt 2b\n"
+    "\n"
+    "3:\n"
+    "# distance--\n"
+    "vsub.f32 s5, s5, s20\n"
+    "\n"
+    "cmp r3, r1\n"
+    "bne 1b\n"
+    "\n"
+    "\n"
+    "4:\n"
+    "vst1.f32 {q14-q15}, [r2, :256]\n"
+    "vstr s5, [r2, #32]\n"
+    "sub r0, r4, r0\n"
+    "lsr r0, r0, #3\n"
+    "\n"
+    "pop  {r4}\n"
+    "vpop {q4,q5,q6,q7}\n"
+    "\n"
+    "bx lr\n"
+    "\n");
 #endif
