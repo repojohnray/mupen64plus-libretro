@@ -354,10 +354,10 @@ SOURCES_C += $(VIDEODIR_GLN64)/3DMath.c \
 endif
 
 ifeq ($(HAVE_NEON),1)
-	SOURCES_ASM	+= $(LIBRETRO_COMM_DIR)/conversion/float_to_s16_neon.S \
-						$(LIBRETRO_COMM_DIR)/conversion/s16_to_float_neon.S \
-						$(AUDIO_LIBRETRO_DIR)/drivers_resampler/sinc_resampler_neon.S \
-						$(AUDIO_LIBRETRO_DIR)/drivers_resampler/cc_resampler_neon.S
+	SOURCES_C	+= $(LIBRETRO_COMM_DIR)/conversion/float_to_s16_neon.c \
+						$(LIBRETRO_COMM_DIR)/conversion/s16_to_float_neon.c \
+						$(AUDIO_LIBRETRO_DIR)/drivers_resampler/sinc_resampler_neon.c \
+						$(AUDIO_LIBRETRO_DIR)/drivers_resampler/cc_resampler_neon.c
 endif
 
 SOURCES_CXX += $(ROOT_DIR)/Graphics/RSP/gSP_funcs.cpp \
